@@ -66,6 +66,16 @@ public:
         datos[tam++] = valor;
     }
 
+    // Conserva la capacidad reservada para poder reutilizar el arreglo al recargar datos.
+    void limpiar() { tam = 0; }
+
+    bool eliminarEn(int indice) {
+        if (indice < 0 || indice >= tam) return false;
+        for (int i = indice; i < tam - 1; ++i) datos[i] = datos[i + 1];
+        --tam;
+        return true;
+    }
+
     T& operator[](int i) { return datos[i]; }
     const T& operator[](int i) const { return datos[i]; }
 

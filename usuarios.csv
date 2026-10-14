@@ -1,0 +1,4 @@
+id,nombreUsuario,fechaNacimiento,correo,contrasena,fotoPerfil,ciudad,pais,fechaInscripcion
+1,ana2004,2004-05-18 00:00:00,ana@udea.edu.co,claveAna,/users/udeabook/ana2004/profile.png,Medellin,Colombia,2026-01-10 09:30:00
+2,carlos99,2003-11-02 00:00:00,carlos@udea.edu.co,claveCarlos,/users/udeabook/carlos99/profile.png,Medellin,Colombia,2026-01-12 10:00:00
+3,luisa_dev,2004-02-29 00:00:00,luisa@udea.edu.co,claveLuisa,/users/udeabook/luisa_dev/profile.png,Bogota,Colombia,2026-02-01 08:15:00
