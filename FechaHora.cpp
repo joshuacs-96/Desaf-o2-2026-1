@@ -1,6 +1,28 @@
 #include "FechaHora.h"
 
-#include <cstdio>
+#include <string>
+namespace {
+// agrega 'valor' con al menos 'digitos' cifras, rellenando con ceros
+void agregarNumero(std::string& destino, int valor, int digitos) {
+    char buffer[12];
+    int n = 0;
+    if (valor < 0) valor = 0;
+    do { buffer[n++] = static_cast<char>('0' + valor % 10); valor /= 10; } while (valor > 0);
+    while (n < digitos) buffer[n++] = '0';
+    for (int i = n - 1; i >= 0; --i) destino += buffer[i];
+}
+
+// lee 'cantidad' dígitos desde 'inicio'; false si hay algún carácter no numérico
+bool leerNumero(const std::string& t, int inicio, int cantidad, int& salida) {
+    int r = 0;
+    for (int i = inicio; i < inicio + cantidad; ++i) {
+        if (t[i] < '0' || t[i] > '9') return false;
+        r = r * 10 + (t[i] - '0');
+    }
+    salida = r;
+    return true;
+}
+}
 
 FechaHora::FechaHora() : anio(0), mes(0), dia(0), hora(0), minuto(0), segundo(0) {}
 
@@ -30,15 +52,25 @@ int FechaHora::getMinuto() const { return minuto; }
 int FechaHora::getSegundo() const { return segundo; }
 
 std::string FechaHora::aTexto() const {
-    char texto[20];
-    std::snprintf(texto, sizeof(texto), "%04d-%02d-%02d %02d:%02d:%02d", anio, mes, dia, hora, minuto, segundo);
-    return texto;
+    std::string r;
+    agregarNumero(r, anio, 4);    r += '-';
+    agregarNumero(r, mes, 2);     r += '-';
+    agregarNumero(r, dia, 2);     r += ' ';
+    agregarNumero(r, hora, 2);    r += ':';
+    agregarNumero(r, minuto, 2);  r += ':';
+    agregarNumero(r, segundo, 2);
+    return r;
 }
 
 bool FechaHora::desdeTexto(const std::string& texto, FechaHora& salida) {
+    // formato exacto: YYYY-MM-DD HH:MM:SS (19 caracteres)
+    if (texto.size() != 19) return false;
+    if (texto[4] != '-' || texto[7] != '-' || texto[10] != ' ' ||
+        texto[13] != ':' || texto[16] != ':') return false;
     int a, m, d, h, min, s;
-    char adicional;
-    if (std::sscanf(texto.c_str(), "%d-%d-%d %d:%d:%d%c", &a, &m, &d, &h, &min, &s, &adicional) != 6) return false;
+    if (!leerNumero(texto, 0, 4, a) || !leerNumero(texto, 5, 2, m) ||
+        !leerNumero(texto, 8, 2, d) || !leerNumero(texto, 11, 2, h) ||
+        !leerNumero(texto, 14, 2, min) || !leerNumero(texto, 17, 2, s)) return false;
     FechaHora fecha(a, m, d, h, min, s);
     if (!fecha.esValida()) return false;
     salida = fecha;

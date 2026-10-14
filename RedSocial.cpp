@@ -2,7 +2,6 @@
 #include "AlgoritmosAmistad.h"
 
 #include <fstream>
-#include <cstdlib>
 
 namespace {
 bool partirLinea(const std::string& linea, std::string* campos, int cantidad) {
@@ -16,8 +15,18 @@ bool partirLinea(const std::string& linea, std::string* campos, int cantidad) {
     if (entreComillas || campo != cantidad - 1) return false;
     campos[campo] = actual; return true;
 }
-int aEntero(const std::string& texto) { return std::atoi(texto.c_str()); }
-long aLong(const std::string& texto) { return std::atol(texto.c_str()); }
+long aLong(const std::string& texto) {
+    long resultado = 0;
+    bool negativo = false;
+    std::size_t i = 0;
+    if (i < texto.size() && texto[i] == '-') { negativo = true; ++i; }
+    for (; i < texto.size(); ++i) {
+        if (texto[i] < '0' || texto[i] > '9') break;
+        resultado = resultado * 10 + (texto[i] - '0');
+    }
+    return negativo ? -resultado : resultado;
+}
+int aEntero(const std::string& texto) { return static_cast<int>(aLong(texto)); }
 Privacidad privacidadDesdeTexto(const std::string& texto) { return texto == "publico" ? Privacidad::Publico : (texto == "amigos" ? Privacidad::Amigos : Privacidad::Privado); }
 EstadoSolicitud estadoDesdeTexto(const std::string& texto) { return texto == "aceptada" ? EstadoSolicitud::Aceptada : (texto == "rechazada" ? EstadoSolicitud::Rechazada : EstadoSolicitud::Pendiente); }
 }
