@@ -33,3 +33,6 @@ long Usuario::memoriaUsada() const {
     for (int i = 0; i < albumes.obtenerTam(); ++i) total += albumes[i].memoriaUsada() - static_cast<long>(sizeof(Album));
     return total;
 }
+bool Usuario::verificarContrasena(const std::string& intento) const {
+    return contrasena == intento;
+}

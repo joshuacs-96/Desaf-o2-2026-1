@@ -135,7 +135,55 @@ long RedSocial::memoriaUsada() const { long total = static_cast<long>(sizeof(*th
 
 bool RedSocial::sonAmigos(int idUsuarioA, int idUsuarioB) { medidor.reiniciarOperacion(); long it = 0; int a = posicionUsuarioPorId(idUsuarioA, it), b = posicionUsuarioPorId(idUsuarioB, it); bool resultado = amistades.sonAmigos(a, b, it); medidor.sumarIteraciones(it); return resultado; }
 bool RedSocial::enviarSolicitud(int idRemitente, int idDestinatario, const FechaHora& fechaHora) { medidor.reiniciarOperacion(); long it = 0; int a = posicionUsuarioPorId(idRemitente, it), b = posicionUsuarioPorId(idDestinatario, it); bool invalida = a < 0 || b < 0 || a == b || amistades.sonAmigos(a, b, it) || haySolicitudPendienteEntre(idRemitente, idDestinatario, it); medidor.sumarIteraciones(it); if (invalida || !fechaHora.esValida()) return false; solicitudes.agregar(SolicitudAmistad(&usuarios[a], &usuarios[b], fechaHora)); return true; }
-bool RedSocial::aceptarSolicitud(int idDestinatario, int idRemitente) { medidor.reiniciarOperacion(); long it = 0; for (int i = 0; i < solicitudes.obtenerTam(); ++i) { ++it; SolicitudAmistad& s = solicitudes[i]; if (s.estaPendiente() && s.getIdDestinatario() == idDestinatario && s.getIdRemitente() == idRemitente) { int a = posicionUsuarioPorId(idDestinatario, it), b = posicionUsuarioPorId(idRemitente, it); if (amistades.establecerAmistad(a, b, it)) { s.aceptar(); medidor.sumarIteraciones(it); return true; } } } medidor.sumarIteraciones(it); return false; }
+
+bool RedSocial::aceptarSolicitud(int idDestinatario, int idRemitente) {
+    medidor.reiniciarOperacion();
+    long it = 0;
+    for (int i = 0; i < solicitudes.obtenerTam(); ++i) {
+        ++it;
+        SolicitudAmistad& s = solicitudes[i];
+        if (s.estaPendiente() &&
+            s.getIdDestinatario() == idDestinatario &&
+            s.getIdRemitente() == idRemitente) {
+            int a = posicionUsuarioPorId(idDestinatario, it);
+            int b = posicionUsuarioPorId(idRemitente, it);
+            if (a < 0 || b < 0) {
+                medidor.sumarIteraciones(it);
+                return false;
+            }
+            amistades.establecerAmistad(a, b, it);
+            s.aceptar();
+            medidor.sumarIteraciones(it);
+            return true;
+        }
+    }
+    medidor.sumarIteraciones(it);
+    return false;
+}
+
+const Usuario* RedSocial::autenticar(const std::string& nombre,
+                                     const std::string& contrasena) {
+    const Usuario* u = buscarUsuarioPorNombre(nombre);
+    if (u == nullptr || !u->verificarContrasena(contrasena)) return nullptr;
+    return u;
+}
+
+bool RedSocial::rechazarSolicitud(int idDestinatario, int idRemitente) {
+    medidor.reiniciarOperacion();
+    long it = 0;
+    for (int i = 0; i < solicitudes.obtenerTam(); ++i) {
+        ++it;
+        SolicitudAmistad& s = solicitudes[i];
+        if (s.estaPendiente() && s.getIdDestinatario() == idDestinatario
+            && s.getIdRemitente() == idRemitente) {
+            s.rechazar();
+            medidor.sumarIteraciones(it);
+            return true;
+        }
+    }
+    medidor.sumarIteraciones(it);
+    return false;
+}
 int RedSocial::obtenerSolicitudesPendientes(int idDestinatario, int* idsRemitentes, int capacidad) { medidor.reiniciarOperacion(); if (idsRemitentes == nullptr || capacidad <= 0) return 0; int n = 0; for (int i = 0; i < solicitudes.obtenerTam(); ++i) { medidor.sumarIteraciones(); if (solicitudes[i].estaPendiente() && solicitudes[i].getIdDestinatario() == idDestinatario && n < capacidad) idsRemitentes[n++] = solicitudes[i].getIdRemitente(); } return n; }
 int RedSocial::obtenerSugerencias(int idUsuario, int maximo, int* idsSalida, int* comunesSalida) { medidor.reiniciarOperacion(); if (idsSalida == nullptr || comunesSalida == nullptr || maximo <= 0) return 0; long it = 0; int p = posicionUsuarioPorId(idUsuario, it); if (p < 0) { medidor.sumarIteraciones(it); return 0; } int n = AlgoritmosAmistad::sugerir(amistades, usuarios[p].getIndiceMatriz(), maximo, idsSalida, comunesSalida, it); for (int i = 0; i < n; ++i) idsSalida[i] = usuarios[idsSalida[i]].getId(); medidor.sumarIteraciones(it); return n; }
 int RedSocial::obtenerMejoresAmigos(int idUsuario, int* idsSalida, int capacidad) { medidor.reiniciarOperacion(); if (idsSalida == nullptr || capacidad <= 0) return 0; long it = 0; int p = posicionUsuarioPorId(idUsuario, it); if (p < 0) return 0; int total = usuarios.obtenerTam(); int* indices = new int[total]; int* comunes = new int[total]; int cantidad = amistades.obtenerAmigos(usuarios[p].getIndiceMatriz(), indices, total, it); for (int i = 0; i < cantidad; ++i) comunes[i] = amistades.contarAmigosComunes(usuarios[p].getIndiceMatriz(), indices[i], it); int n = AlgoritmosAmistad::seleccionarDestacados(indices, comunes, cantidad, idsSalida, capacidad, semilla, it); for (int i = 0; i < n; ++i) idsSalida[i] = usuarios[idsSalida[i]].getId(); delete[] indices; delete[] comunes; medidor.sumarIteraciones(it); return n; }

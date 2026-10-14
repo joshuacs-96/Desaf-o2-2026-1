@@ -46,6 +46,8 @@ public:
     bool sonAmigos(int idUsuarioA, int idUsuarioB);
     bool enviarSolicitud(int idRemitente, int idDestinatario, const FechaHora& fechaHora);
     bool aceptarSolicitud(int idDestinatario, int idRemitente);
+    const Usuario* autenticar(const std::string& nombre, const std::string& contrasena);
+    bool rechazarSolicitud(int idDestinatario, int idRemitente);
     int obtenerSolicitudesPendientes(int idDestinatario, int* idsRemitentes, int capacidad);
     int obtenerSugerencias(int idUsuario, int maximo, int* idsSalida, int* comunesSalida);
     int obtenerMejoresAmigos(int idUsuario, int* idsSalida, int capacidad);

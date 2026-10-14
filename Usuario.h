@@ -50,6 +50,7 @@ public:
     int getCantidadMensajesEnviados() const;
     int getCantidadMensajesRecibidos() const;
     long memoriaUsada() const;
+    bool verificarContrasena(const std::string& intento) const;
 };
 
 #endif
