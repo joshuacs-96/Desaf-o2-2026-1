@@ -36,3 +36,7 @@ long Usuario::memoriaUsada() const {
 bool Usuario::verificarContrasena(const std::string& intento) const {
     return contrasena == intento;
 }
+Mensaje* Usuario::getMensajeRecibido(int posicion) const {
+    if (posicion < 0 || posicion >= mensajesRecibidos.obtenerTam()) return nullptr;
+    return mensajesRecibidos[posicion];
+}

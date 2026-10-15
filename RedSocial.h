@@ -53,6 +53,9 @@ public:
     int obtenerMejoresAmigos(int idUsuario, int* idsSalida, int capacidad);
     int obtenerAlbumesVisibles(int idVisitante, int idPropietario, int* idsAlbumes, int capacidad);
     bool alternarLike(int idUsuario, int idFoto);
+    int enviarMensaje(int idRemitente, int idDestinatario, const std::string& texto, const FechaHora& fecha);
+    int leerNuevosMensajes(int idUsuario, Mensaje** salida, int capacidad);
+    int buscarMensajes(int idUsuario, const FechaHora& desde, const FechaHora& hasta, const Mensaje** salida, int capacidad);
 };
 
 #endif

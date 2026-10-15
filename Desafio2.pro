@@ -4,6 +4,7 @@ CONFIG -= app_bundle
 CONFIG -= qt
 
 SOURCES += \
+        RedSocialMensajes.cpp \
         main.cpp \
         MatrizAmistades.cpp \
         AlgoritmosAmistad.cpp \
