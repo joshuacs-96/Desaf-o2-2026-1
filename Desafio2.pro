@@ -5,6 +5,7 @@ CONFIG -= qt
 
 SOURCES += \
         RedSocialMensajes.cpp \
+        RedSocialPersistencia.cpp \
         main.cpp \
         MatrizAmistades.cpp \
         AlgoritmosAmistad.cpp \
@@ -15,7 +16,9 @@ SOURCES += \
         Foto.cpp \
         Album.cpp \
         RedSocial.cpp \
-        Mensaje.cpp
+        Mensaje.cpp \
+        persistencia.cpp \
+        utilcsv.cpp
 
 HEADERS += \
     ArregloDinamico.h \
@@ -28,4 +31,6 @@ HEADERS += \
     Foto.h \
     Album.h \
     RedSocial.h \
-    Mensaje.h
+    Mensaje.h \
+    persistencia.h \
+    utilcsv.h

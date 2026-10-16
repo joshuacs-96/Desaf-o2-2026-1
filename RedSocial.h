@@ -8,6 +8,7 @@
 #include "Mensaje.h"
 #include "MatrizAmistades.h"
 #include "MedidorRecursos.h"
+#include "Persistencia.h"
 
 // Posee los datos del dominio. Los CSV relacionan entidades por ID; la matriz usa
 // exclusivamente el indiceMatriz asignado durante la carga de usuarios.
@@ -31,6 +32,10 @@ private:
     bool cargarFotos(const std::string& ruta);
     bool cargarLikes(const std::string& ruta);
     bool cargarMensajes(const std::string& ruta);
+    Persistencia persistencia;
+    bool recuperando;
+    bool registrarCambio(const std::string& linea);
+    bool recuperarCambios();
 
 public:
     RedSocial();

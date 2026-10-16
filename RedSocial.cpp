@@ -1,5 +1,6 @@
 #include "RedSocial.h"
 #include "AlgoritmosAmistad.h"
+#include "UtilCsv.h"
 
 #include <fstream>
 
@@ -31,7 +32,7 @@ Privacidad privacidadDesdeTexto(const std::string& texto) { return texto == "pub
 EstadoSolicitud estadoDesdeTexto(const std::string& texto) { return texto == "aceptada" ? EstadoSolicitud::Aceptada : (texto == "rechazada" ? EstadoSolicitud::Rechazada : EstadoSolicitud::Pendiente); }
 }
 
-RedSocial::RedSocial() : semilla(123456789u) {}
+RedSocial::RedSocial() : semilla(123456789u), recuperando(false) {}
 RedSocial::~RedSocial() { for (int i = 0; i < mensajes.obtenerTam(); ++i) delete mensajes[i]; }
 
 int RedSocial::posicionUsuarioPorId(int id, long& iteraciones) const {
@@ -124,7 +125,9 @@ bool RedSocial::cargarMensajes(const std::string& ruta) {
 bool RedSocial::cargarDesdeDirectorio(const std::string& directorio) {
     medidor.reiniciarOperacion();
     std::string base = directorio; if (!base.empty() && base.back() != '/' && base.back() != '\\') base += "/";
-    return cargarUsuarios(base + "usuarios.csv") && cargarAmistades(base + "amistades.csv") && cargarSolicitudes(base + "solicitudes.csv") && cargarAlbumes(base + "albumes.csv") && cargarFotos(base + "fotos.csv") && cargarLikes(base + "likes.csv") && cargarMensajes(base + "mensajes.csv");
+    bool ok = cargarUsuarios(base + "usuarios.csv") && cargarAmistades(base + "amistades.csv") && cargarSolicitudes(base + "solicitudes.csv") && cargarAlbumes(base + "albumes.csv") && cargarFotos(base + "fotos.csv") && cargarLikes(base + "likes.csv") && cargarMensajes(base + "mensajes.csv");
+    if (ok) { persistencia.configurar(base + "cambios.log"); ok = recuperarCambios(); }
+    return ok;
 }
 
 const Usuario* RedSocial::buscarUsuarioPorId(int id) { medidor.reiniciarOperacion(); long it = 0; int p = posicionUsuarioPorId(id, it); medidor.sumarIteraciones(it); return p < 0 ? nullptr : &usuarios[p]; }
@@ -134,23 +137,33 @@ const MedidorRecursos& RedSocial::getMedidor() const { medidor.actualizarMemoria
 long RedSocial::memoriaUsada() const { long total = static_cast<long>(sizeof(*this)) + static_cast<long>(usuarios.obtenerCapacidad()) * static_cast<long>(sizeof(Usuario)) + static_cast<long>(solicitudes.obtenerCapacidad()) * static_cast<long>(sizeof(SolicitudAmistad)) + static_cast<long>(mensajes.obtenerCapacidad()) * static_cast<long>(sizeof(Mensaje*)) + amistades.memoriaUsada(); for (int i = 0; i < usuarios.obtenerTam(); ++i) total += usuarios[i].memoriaUsada() - static_cast<long>(sizeof(Usuario)); for (int i = 0; i < mensajes.obtenerTam(); ++i) total += static_cast<long>(sizeof(Mensaje)) + static_cast<long>(mensajes[i]->getTexto().capacity()) + 1; return total; }
 
 bool RedSocial::sonAmigos(int idUsuarioA, int idUsuarioB) { medidor.reiniciarOperacion(); long it = 0; int a = posicionUsuarioPorId(idUsuarioA, it), b = posicionUsuarioPorId(idUsuarioB, it); bool resultado = amistades.sonAmigos(a, b, it); medidor.sumarIteraciones(it); return resultado; }
-bool RedSocial::enviarSolicitud(int idRemitente, int idDestinatario, const FechaHora& fechaHora) { medidor.reiniciarOperacion(); long it = 0; int a = posicionUsuarioPorId(idRemitente, it), b = posicionUsuarioPorId(idDestinatario, it); bool invalida = a < 0 || b < 0 || a == b || amistades.sonAmigos(a, b, it) || haySolicitudPendienteEntre(idRemitente, idDestinatario, it); medidor.sumarIteraciones(it); if (invalida || !fechaHora.esValida()) return false; solicitudes.agregar(SolicitudAmistad(&usuarios[a], &usuarios[b], fechaHora)); return true; }
-
+bool RedSocial::enviarSolicitud(int idRemitente, int idDestinatario, const FechaHora& fechaHora) {
+    medidor.reiniciarOperacion();
+    long it = 0;
+    int a = posicionUsuarioPorId(idRemitente, it);
+    int b = posicionUsuarioPorId(idDestinatario, it);
+    bool invalida = a < 0 || b < 0 || a == b || amistades.sonAmigos(a, b, it)
+                    || haySolicitudPendienteEntre(idRemitente, idDestinatario, it);
+    medidor.sumarIteraciones(it);
+    if (invalida || !fechaHora.esValida()) return false;
+    if (!registrarCambio("SOLICITUD," + UtilCsv::aTexto(idRemitente) + ","
+                         + UtilCsv::aTexto(idDestinatario) + "," + fechaHora.aTexto())) return false;
+    solicitudes.agregar(SolicitudAmistad(&usuarios[a], &usuarios[b], fechaHora));
+    return true;
+}
 bool RedSocial::aceptarSolicitud(int idDestinatario, int idRemitente) {
     medidor.reiniciarOperacion();
     long it = 0;
     for (int i = 0; i < solicitudes.obtenerTam(); ++i) {
         ++it;
         SolicitudAmistad& s = solicitudes[i];
-        if (s.estaPendiente() &&
-            s.getIdDestinatario() == idDestinatario &&
-            s.getIdRemitente() == idRemitente) {
+        if (s.estaPendiente() && s.getIdDestinatario() == idDestinatario
+            && s.getIdRemitente() == idRemitente) {
             int a = posicionUsuarioPorId(idDestinatario, it);
             int b = posicionUsuarioPorId(idRemitente, it);
-            if (a < 0 || b < 0) {
-                medidor.sumarIteraciones(it);
-                return false;
-            }
+            if (a < 0 || b < 0) { medidor.sumarIteraciones(it); return false; }
+            if (!registrarCambio("ACEPTAR," + UtilCsv::aTexto(idDestinatario) + ","
+                                 + UtilCsv::aTexto(idRemitente))) { medidor.sumarIteraciones(it); return false; }
             amistades.establecerAmistad(a, b, it);
             s.aceptar();
             medidor.sumarIteraciones(it);
@@ -176,6 +189,8 @@ bool RedSocial::rechazarSolicitud(int idDestinatario, int idRemitente) {
         SolicitudAmistad& s = solicitudes[i];
         if (s.estaPendiente() && s.getIdDestinatario() == idDestinatario
             && s.getIdRemitente() == idRemitente) {
+            if (!registrarCambio("RECHAZAR," + UtilCsv::aTexto(idDestinatario) + ","
+                                 + UtilCsv::aTexto(idRemitente))) { medidor.sumarIteraciones(it); return false; }
             s.rechazar();
             medidor.sumarIteraciones(it);
             return true;
@@ -188,4 +203,33 @@ int RedSocial::obtenerSolicitudesPendientes(int idDestinatario, int* idsRemitent
 int RedSocial::obtenerSugerencias(int idUsuario, int maximo, int* idsSalida, int* comunesSalida) { medidor.reiniciarOperacion(); if (idsSalida == nullptr || comunesSalida == nullptr || maximo <= 0) return 0; long it = 0; int p = posicionUsuarioPorId(idUsuario, it); if (p < 0) { medidor.sumarIteraciones(it); return 0; } int n = AlgoritmosAmistad::sugerir(amistades, usuarios[p].getIndiceMatriz(), maximo, idsSalida, comunesSalida, it); for (int i = 0; i < n; ++i) idsSalida[i] = usuarios[idsSalida[i]].getId(); medidor.sumarIteraciones(it); return n; }
 int RedSocial::obtenerMejoresAmigos(int idUsuario, int* idsSalida, int capacidad) { medidor.reiniciarOperacion(); if (idsSalida == nullptr || capacidad <= 0) return 0; long it = 0; int p = posicionUsuarioPorId(idUsuario, it); if (p < 0) return 0; int total = usuarios.obtenerTam(); int* indices = new int[total]; int* comunes = new int[total]; int cantidad = amistades.obtenerAmigos(usuarios[p].getIndiceMatriz(), indices, total, it); for (int i = 0; i < cantidad; ++i) comunes[i] = amistades.contarAmigosComunes(usuarios[p].getIndiceMatriz(), indices[i], it); int n = AlgoritmosAmistad::seleccionarDestacados(indices, comunes, cantidad, idsSalida, capacidad, semilla, it); for (int i = 0; i < n; ++i) idsSalida[i] = usuarios[idsSalida[i]].getId(); delete[] indices; delete[] comunes; medidor.sumarIteraciones(it); return n; }
 int RedSocial::obtenerAlbumesVisibles(int idVisitante, int idPropietario, int* idsAlbumes, int capacidad) { medidor.reiniciarOperacion(); if (idsAlbumes == nullptr || capacidad <= 0) return 0; long it = 0; int visitante = posicionUsuarioPorId(idVisitante, it), propietario = posicionUsuarioPorId(idPropietario, it); if (visitante < 0 || propietario < 0) return 0; bool amigo = amistades.sonAmigos(visitante, propietario, it); int n = 0; for (int i = 0; i < usuarios[propietario].getCantidadAlbumes(); ++i) { ++it; const Album* album = usuarios[propietario].getAlbum(i); if (album->esVisiblePara(idVisitante == idPropietario, amigo) && n < capacidad) idsAlbumes[n++] = album->getId(); } medidor.sumarIteraciones(it); return n; }
-bool RedSocial::alternarLike(int idUsuario, int idFoto) { medidor.reiniciarOperacion(); long it = 0; int usuario = posicionUsuarioPorId(idUsuario, it); if (usuario < 0) { medidor.sumarIteraciones(it); return false; } Foto* foto = nullptr; Album* encontrado = nullptr; for (int u = 0; u < usuarios.obtenerTam() && foto == nullptr; ++u) for (int a = 0; a < usuarios[u].getCantidadAlbumes() && foto == nullptr; ++a) { Album* album = usuarios[u].getAlbum(a); foto = album->buscarFotoPorId(idFoto, it); if (foto != nullptr) encontrado = album; } if (foto == nullptr || encontrado == nullptr) { medidor.sumarIteraciones(it); return false; } int propietario = posicionUsuarioPorId(encontrado->getIdPropietario(), it); bool amigo = amistades.sonAmigos(usuario, propietario, it); if (!encontrado->esVisiblePara(usuario == propietario, amigo)) { medidor.sumarIteraciones(it); return false; } bool agregado = foto->alternarLike(idUsuario, it); medidor.sumarIteraciones(it); return agregado; }
+bool RedSocial::alternarLike(int idUsuario, int idFoto) {
+    medidor.reiniciarOperacion();
+    long it = 0;
+    int usuario = posicionUsuarioPorId(idUsuario, it);
+    if (usuario < 0) { medidor.sumarIteraciones(it); return false; }
+
+    Foto* foto = nullptr;
+    Album* encontrado = nullptr;
+    for (int u = 0; u < usuarios.obtenerTam() && foto == nullptr; ++u)
+        for (int a = 0; a < usuarios[u].getCantidadAlbumes() && foto == nullptr; ++a) {
+            Album* album = usuarios[u].getAlbum(a);
+            foto = album->buscarFotoPorId(idFoto, it);
+            if (foto != nullptr) encontrado = album;
+        }
+    if (foto == nullptr || encontrado == nullptr) { medidor.sumarIteraciones(it); return false; }
+
+    int propietario = posicionUsuarioPorId(encontrado->getIdPropietario(), it);
+    bool amigo = amistades.sonAmigos(usuario, propietario, it);
+    if (!encontrado->esVisiblePara(usuario == propietario, amigo)) { medidor.sumarIteraciones(it); return false; }
+
+    // registro del cambio antes de aplicarlo en memoria
+    if (!registrarCambio("LIKE," + UtilCsv::aTexto(idUsuario) + "," + UtilCsv::aTexto(idFoto))) {
+        medidor.sumarIteraciones(it);
+        return false;
+    }
+
+    bool agregado = foto->alternarLike(idUsuario, it);
+    medidor.sumarIteraciones(it);
+    return agregado;
+}

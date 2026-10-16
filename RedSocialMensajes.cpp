@@ -1,4 +1,5 @@
 #include "RedSocial.h"
+#include "UtilCsv.h"
 
 int RedSocial::enviarMensaje(int idRemitente, int idDestinatario,
                              const std::string& texto, const FechaHora& fecha) {
@@ -20,6 +21,11 @@ int RedSocial::enviarMensaje(int idRemitente, int idDestinatario,
         }
         if (!hayContenido) codigo = 3;
     }
+
+    // registro del cambio antes de aplicarlo en memoria
+    if (codigo == 0 && !registrarCambio("MENSAJE," + UtilCsv::aTexto(idRemitente) + ","
+                                        + UtilCsv::aTexto(idDestinatario) + "," + fecha.aTexto() + "," + UtilCsv::escapar(texto)))
+        codigo = 6;
 
     if (codigo == 0) {
         // un único dueño: RedSocial; las bandejas solo guardan el puntero
@@ -56,8 +62,13 @@ int RedSocial::leerNuevosMensajes(int idUsuario, Mensaje** salida, int capacidad
             }
             salida[j + 1] = actual;
         }
-        // 3. marcarlos como leídos; el menú los muestra desde 'salida'
-        for (int i = 0; i < n; ++i) { ++it; salida[i]->marcarLeido(); }
+        // 3. registrar y marcar como leídos; el menú los muestra desde 'salida'
+        for (int i = 0; i < n; ++i) {
+            ++it;
+            if (registrarCambio("LEIDO," + UtilCsv::aTexto(salida[i]->obtenerEmisor()->getId()) + ","
+                                + UtilCsv::aTexto(idUsuario) + "," + salida[i]->getFechaEnvio().aTexto()))
+                salida[i]->marcarLeido();
+        }
     }
     medidor.sumarIteraciones(it);
     return n;
