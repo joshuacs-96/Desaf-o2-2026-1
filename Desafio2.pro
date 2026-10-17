@@ -4,6 +4,7 @@ CONFIG -= app_bundle
 CONFIG -= qt
 
 SOURCES += \
+        MenuConsola.cpp \
         RedSocialMensajes.cpp \
         RedSocialPersistencia.cpp \
         main.cpp \
@@ -26,6 +27,7 @@ HEADERS += \
     AlgoritmosAmistad.h \
     FechaHora.h \
     MedidorRecursos.h \
+    MenuConsola.h \
     Usuario.h \
     SolicitudAmistad.h \
     Foto.h \
